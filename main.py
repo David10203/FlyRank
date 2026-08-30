@@ -2,7 +2,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-app = FastAPI()
+app = FastAPI(
+    title="Task API",
+    version="1.0"
+)
+
 
 class TaskCreate(BaseModel):
     title: str | None = None
@@ -29,6 +33,7 @@ tasks = [
 
 next_id = 4
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(
     request: Request,
@@ -39,7 +44,11 @@ async def http_exception_handler(
         content={"error": exc.detail}
     )
 
-@app.get("/")
+
+@app.get(
+    "/",
+    description="Returns information about the Task API."
+)
 def root():
     return {
         "name": "Task API",
@@ -48,16 +57,26 @@ def root():
     }
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    description="Checks whether the API is running."
+)
 def health():
     return {"status": "ok"}
 
-@app.get("/tasks")
+
+@app.get(
+    "/tasks",
+    description="Returns all tasks."
+)
 def get_tasks():
     return tasks
 
 
-@app.get("/tasks/{task_id}")
+@app.get(
+    "/tasks/{task_id}",
+    description="Returns a single task by ID."
+)
 def get_task(task_id: int):
     for task in tasks:
         if task["id"] == task_id:
@@ -69,7 +88,11 @@ def get_task(task_id: int):
     )
 
 
-@app.post("/tasks", status_code=201)
+@app.post(
+    "/tasks",
+    description="Creates a new task.",
+    status_code=201
+)
 def create_task(task_data: TaskCreate):
     global next_id
 
@@ -91,11 +114,11 @@ def create_task(task_data: TaskCreate):
     return new_task
 
 
-
-
-@app.put("/tasks/{task_id}")
+@app.put(
+    "/tasks/{task_id}",
+    description="Updates a task by ID."
+)
 def update_task(task_id: int, task_data: TaskCreate):
-
     if task_data.title is None and task_data.done is None:
         raise HTTPException(
             status_code=400,
@@ -110,7 +133,6 @@ def update_task(task_id: int, task_data: TaskCreate):
 
     for task in tasks:
         if task["id"] == task_id:
-
             if task_data.title is not None:
                 task["title"] = task_data.title.strip()
 
@@ -125,9 +147,12 @@ def update_task(task_id: int, task_data: TaskCreate):
     )
 
 
-@app.delete("/tasks/{task_id}", status_code=204)
+@app.delete(
+    "/tasks/{task_id}",
+    description="Deletes a task by ID.",
+    status_code=204
+)
 def delete_task(task_id: int):
-
     for index, task in enumerate(tasks):
         if task["id"] == task_id:
             tasks.pop(index)
