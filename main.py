@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 app = FastAPI()
 
-
 class TaskCreate(BaseModel):
-    title: str = Field(min_length=1)
+    title: str | None = None
+    done: bool | None = None
 
 
 tasks = [
@@ -26,9 +27,17 @@ tasks = [
     }
 ]
 
-
 next_id = 4
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(
+    request: Request,
+    exc: HTTPException
+):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail}
+    )
 
 @app.get("/")
 def root():
@@ -42,7 +51,6 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
 
 @app.get("/tasks")
 def get_tasks():
@@ -65,9 +73,15 @@ def get_task(task_id: int):
 def create_task(task_data: TaskCreate):
     global next_id
 
+    if task_data.title is None or not task_data.title.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Title is required and cannot be empty"
+        )
+
     new_task = {
         "id": next_id,
-        "title": task_data.title,
+        "title": task_data.title.strip(),
         "done": False
     }
 
@@ -75,3 +89,51 @@ def create_task(task_data: TaskCreate):
     next_id += 1
 
     return new_task
+
+
+
+
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, task_data: TaskCreate):
+
+    if task_data.title is None and task_data.done is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Request body must contain title or done"
+        )
+
+    if task_data.title is not None and not task_data.title.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Title cannot be empty"
+        )
+
+    for task in tasks:
+        if task["id"] == task_id:
+
+            if task_data.title is not None:
+                task["title"] = task_data.title.strip()
+
+            if task_data.done is not None:
+                task["done"] = task_data.done
+
+            return task
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"Task {task_id} not found"
+    )
+
+
+@app.delete("/tasks/{task_id}", status_code=204)
+def delete_task(task_id: int):
+
+    for index, task in enumerate(tasks):
+        if task["id"] == task_id:
+            tasks.pop(index)
+            return
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"Task {task_id} not found"
+    )
